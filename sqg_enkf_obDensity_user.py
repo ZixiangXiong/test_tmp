@@ -61,7 +61,7 @@ def main():
     hybrid_network = 1  # if 1, network is randomly generated but remains the same at all cycles (FIXED)
     percentage_arctan = 0.2   # if >0, it means the observation is mixed with linear and nonlinear.
     oberrstdev = 1.0  # observation error standard deviation in K (orig=1)
-    oberrstdev_nl = 0.01
+    oberrstdev_nl = 0.03
     # if levob=0, sfc temp obs used.  if 1, lid temp obs used. If [0,1] obs at both
     # boundaries.
     levob = [0, 1];
@@ -73,9 +73,9 @@ def main():
     direct_insertion = False  # only relevant for nobs=-1, levob=[0,1] (orig=False)
 
     ## I/O paths
-    #savedata = True  # save data (orig=False)
-    savedata = False                                                                                            ##1234567890
-    data_dir = r"C:\Users\Zixiang\PycharmProjects\Research"
+    # savedata = True  # save data (orig=False)
+    savedata = False  ##1234567890
+    data_dir = r"/Users/xiongzixiang/PycharmProjects/EnSF_banking"
     filename_climo = '{}/sqg_N{}_3hrly.nc'.format(data_dir, N1)  # file name for forecast model climatology
     fname_ncout = r'C:\Users\Zixiang\PycharmProjects\Research\sqg_enkf_p{}_RANDOM.nc'.format(nobs)
     if nobs < 0:
@@ -87,7 +87,7 @@ def main():
             nobs)
     filename_truth = '{}/sqg_N{}_3hrly.nc'.format(data_dir, N1)  # file name for nature run to draw observations
     outdir_figs = r'C:\Users\Zixiang\PycharmProjects\Research\observation_density_tunedParms'
-
+    
     ## Plotting
     plot_KE_spectra_error_spread = True
     plot_ob_network = False
@@ -98,7 +98,7 @@ def main():
 
     ## Input arguments
     hcovlocal_scale = 1200.0 * 1000.0  #  [m]
-    covinflate1 = 0.5
+    covinflate1 = 0.8
     covinflate2 = -1.0
 
     ## Print info
@@ -139,7 +139,7 @@ def main():
     ## Initialize background ensemble by picking PV fields from randomly selected
     ## climatology times
     print("* Initialize model ensemble from model climatology")
-    pvens = np.empty((nanals, 2, ny, nx), np.float32)
+    pvens = np.empty((nanals, 2, ny, nx), np.float64)
     indxran = np.random.choice(pv_climo.shape[0], size=nanals, \
                                replace=False)  # set of randomly selected time indices
     threads = int(os.getenv('OMP_NUM_THREADS', '1'))
@@ -147,7 +147,7 @@ def main():
     for nanal in range(nanals):
         pvens[nanal] = pv_climo[indxran[nanal]]
         if use_ensf is True:                                                                                     ##1234567890
-            pvens[nanal] = pv_climo[0] + np.random.normal(0, 1000, size=(2, ny, nx))                    ##1234567890
+            pvens[nanal] = pv_climo[0] + np.random.normal(0., 1000., size=(2, ny, nx))                    ##1234567890
         models.append( \
             SQG(pvens[nanal],
                 nsq=nc_climo.nsq, f=nc_climo.f, dt=dt, U=nc_climo.U, H=nc_climo.H, \
@@ -181,14 +181,14 @@ def main():
             obs_network_type = "Fixed"
         else:
             obs_network_type = "Random"
-    oberrvar = oberrstdev ** 2 * np.ones(nobs, np.float32)  # 1D array of ob variances [p].
+    oberrvar = oberrstdev ** 2 * np.ones(nobs, np.float64)  # 1D array of ob variances [p].
     oberrvar_mean = oberrvar.mean()  # mean observation error variance
-    pvob = np.empty((len(levob), nobs), np.float32)  #  2D array of observations [lev,p]
-    covlocal = np.empty((ny, nx), np.float32)  # 2D array of covariance functions [Nx,Ny]
-    covlocal_tmp = np.empty((nobs, nx * ny), np.float32)  # 2D array of covariance functions [p,Nx*Ny]
-    xens = np.empty((nanals, 2, nx * ny), np.float32)  # state vector [K,levs,Nx*Ny]
+    pvob = np.empty((len(levob), nobs), np.float64)  #  2D array of observations [lev,p]
+    covlocal = np.empty((ny, nx), np.float64)  # 2D array of covariance functions [Nx,Ny]
+    covlocal_tmp = np.empty((nobs, nx * ny), np.float64)  # 2D array of covariance functions [p,Nx*Ny]
+    xens = np.empty((nanals, 2, nx * ny), np.float64)  # state vector [K,levs,Nx*Ny]
     if not use_letkf:  # if we use EnSRF, will use an observation localization function
-        obcovlocal = np.empty((nobs, nobs), np.float32)  #  2D array of size [p,p]
+        obcovlocal = np.empty((nobs, nobs), np.float64)  #  2D array of size [p,p]
     else:
         obcovlocal = None
     obtimes = nc_truth.variables['t'][:]
@@ -255,22 +255,22 @@ def main():
             obs2 = nc.createDimension('obs2', len(levob) * nobs)
             ens = nc.createDimension('ens', nanals)
             # create variables
-            tvar = nc.createVariable('t', np.float32, ('t',))
-            ensvar = nc.createVariable('ens', np.int32, ('ens',))
-            zvar = nc.createVariable('z', np.float32, ('z',))
-            yvar = nc.createVariable('y', np.float32, ('y',))
-            xvar = nc.createVariable('x', np.float32, ('x',))
-            x_obs = nc.createVariable('x_obs', np.float32, ('t', 'obs'))
-            y_obs = nc.createVariable('y_obs', np.float32, ('t', 'obs'))
-            pv_obs = nc.createVariable('obs', np.float32, ('t', 'obs2'), zlib=True)
-            pv_t = nc.createVariable('pv_t', np.float32, ('t', 'z', 'y', 'x'), zlib=True)
-            pv_b = nc.createVariable('pv_b', np.float32, ('t', 'ens', 'z', 'y', 'x'), zlib=True)
-            pv_a = nc.createVariable('pv_a', np.float32, ('t', 'ens', 'z', 'y', 'x'), zlib=True)
-            inf = nc.createVariable('inflation', np.float32, ('t', 'z', 'y', 'x'), zlib=True)
-            rmsi_b_nc = nc.createVariable('rmsi_b', np.float32, ('t',))
-            total_spread_b_nc = nc.createVariable('total_spread_b', np.float32, ('t',))
-            rmsi_a_nc = nc.createVariable('rmsi_a', np.float32, ('t',))
-            total_spread_a_nc = nc.createVariable('total_spread_a', np.float32, ('t',))
+            tvar = nc.createVariable('t', np.float64, ('t',))
+            ensvar = nc.createVariable('ens', np.int64, ('ens',))
+            zvar = nc.createVariable('z', np.float64, ('z',))
+            yvar = nc.createVariable('y', np.float64, ('y',))
+            xvar = nc.createVariable('x', np.float64, ('x',))
+            x_obs = nc.createVariable('x_obs', np.float64, ('t', 'obs'))
+            y_obs = nc.createVariable('y_obs', np.float64, ('t', 'obs'))
+            pv_obs = nc.createVariable('obs', np.float64, ('t', 'obs2'), zlib=True)
+            pv_t = nc.createVariable('pv_t', np.float64, ('t', 'z', 'y', 'x'), zlib=True)
+            pv_b = nc.createVariable('pv_b', np.float64, ('t', 'ens', 'z', 'y', 'x'), zlib=True)
+            pv_a = nc.createVariable('pv_a', np.float64, ('t', 'ens', 'z', 'y', 'x'), zlib=True)
+            inf = nc.createVariable('inflation', np.float64, ('t', 'z', 'y', 'x'), zlib=True)
+            rmsi_b_nc = nc.createVariable('rmsi_b', np.float64, ('t',))
+            total_spread_b_nc = nc.createVariable('total_spread_b', np.float64, ('t',))
+            rmsi_a_nc = nc.createVariable('rmsi_a', np.float64, ('t',))
+            total_spread_a_nc = nc.createVariable('total_spread_a', np.float64, ('t',))
             # set up units
             pv_t.units = 'K'
             pv_b.units = 'K'
@@ -308,7 +308,7 @@ def main():
         if not fixed:
             if hybrid_network == 1:                                             ## Fixed
                 np.random.seed(10)  # fix random seed so that you get the same network every time
-            p = np.ones((ny, nx), np.float32) / (nx * ny)                ## Random
+            p = np.ones((ny, nx), np.float64) / (nx * ny)                ## Random
             indxob = np.random.choice(nx * ny, nobs, replace=False, p=p.ravel())
         else:                                                                   ## Fixed_even
             mask = np.zeros((ny, nx), bool)
@@ -331,13 +331,19 @@ def main():
 
         if percentage_arctan > 0:
             np.random.seed(50)
-            indx_indxob_l = np.random.choice(np.arange(nobs), int(nobs * (1-percentage_arctan)), replace=False)
+            indx_indxob_l = np.sort(np.random.choice(np.arange(nobs), int(nobs * (1-percentage_arctan)), replace=False),axis=None)
             indxob_l = indxob[indx_indxob_l]
             indx_indxob_nl = np.setdiff1d(np.arange(nobs),indx_indxob_l)
             indxob_nl = indxob[indx_indxob_nl]
             oberrvar[[indx_indxob_nl]] = oberrstdev_nl ** 2
-            print("indxob_l[0:10]", indxob_l[0:10], indxob_l.shape)
-            print("indxob_nl[0:10]", indxob_nl[0:10], indxob_nl.shape)
+            print("indxob[0:20]", indxob[0:20], indxob.shape)
+            print("indx_indxob_l[0:20]", indx_indxob_l[0:20], indx_indxob_l.shape)
+            print("indxob_l[0:20]", indxob_l[0:20], indxob_l.shape)
+            print(indxob[indx_indxob_l[0:20]])
+            print("indx_indxob_nl[0:20]", indx_indxob_nl[0:20], indx_indxob_nl.shape)
+            print("indxob_nl[0:20]", indxob_nl[0:20], indxob_nl.shape)
+            print(oberrvar[0],oberrvar[4],oberrvar[13],oberrvar[17],oberrvar[26])
+            print(oberrvar[1],oberrvar[2],oberrvar[3],oberrvar[5])
         print("indxob", indxob, indxob.shape)
         #print(oberrvar)
 
@@ -346,14 +352,26 @@ def main():
         if percentage_arctan <= 0:          ## observation function is only linear.
             for k in range(len(levob)):
                 # surface temp obs
+                ## pv_truth[ntime, k, :, :].shape=(64,64), pv_truth[ntime, k, :, :].ravel().shape= 4096
                 pvob[k] = scalefact * pv_truth[ntime, k, :, :].ravel()[indxob]
                 pvob[k] += np.random.normal(scale=oberrstdev, size=nobs)  # add ob errors
         elif percentage_arctan > 0:         ## observation function is mixed of linear and nonlinear.
             for k in range(len(levob)):
-                pvob[k][indx_indxob_l] = scalefact * pv_truth[ntime, k, :, :].ravel()[indxob_l]
-                pvob[k][indx_indxob_l] += np.random.normal(scale=oberrstdev, size=indx_indxob_l.shape[0])  # add ob errors
-                pvob[k][indx_indxob_nl] = np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[indxob_nl])
-                pvob[k][indx_indxob_nl] += np.random.normal(scale=oberrstdev_nl, size=indx_indxob_nl.shape[0])  # add ob errors
+                pvob[k][[indx_indxob_l]] = scalefact * pv_truth[ntime, k, :, :].ravel()[indxob_l]
+                #print(scalefact * pv_truth[ntime, k, :, :].ravel()[84],pvob[k][1])
+                #print(scalefact * pv_truth[ntime, k, :, :].ravel()[2595], pvob[k][2])
+                #print("pvob[k][[indx_indxob_l]]",pvob[k][1],pvob[k][2],pvob[k][3],pvob[k][5])
+                pvob[k][[indx_indxob_l]] += np.random.normal(loc=0.,scale=oberrstdev, size=indx_indxob_l.shape[0])  # add ob errors
+                #print(pvob[k][1],pvob[k][2])
+                #print("pvob[k][[indx_indxob_l]]", pvob[k][1],pvob[k][2],pvob[k][3],pvob[k][5])
+                pvob[k][[indx_indxob_nl]] = np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[indxob_nl])
+                #print(np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[3159]),pvob[k][0])
+                #print(np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[2041]), pvob[k][4])
+                #print("pvob[k][[indx_indxob_nl]]", pvob[k][0],pvob[k][4],pvob[k][13],pvob[k][17])
+                pvob[k][[indx_indxob_nl]] += np.random.normal(loc=0.,scale=oberrstdev_nl, size=indx_indxob_nl.shape[0])  # add ob errors
+                #print(pvob[k][0],pvob[k][4])
+                #print("pvob[k][[indx_indxob_nl]]", pvob[k][0],pvob[k][4],pvob[k][13],pvob[k][17])
+
         xob = x.ravel()[indxob]
         yob = y.ravel()[indxob]
         pvens_copy = pvens.copy()                                                                                   ##1234567890
@@ -514,7 +532,7 @@ def main():
             ## Normalization for Pvob and obs_sigma
             Pvob_normalization = (Pvob - scalefact * mean_XXens) / std_XXens
             #Pvob_normalization = np.arctan(((np.tan(Pvob) / scalefact - mean_Xens) / std_Xens) * scalefact)
-            obs_sigma = oberrstdev * np.ones(2 * nobs, np.float32)
+            obs_sigma = oberrstdev * np.ones(2 * nobs, np.float64)
             if percentage_arctan <= 0:
                 obs_sigma = ((obs_sigma / scalefact) / std_XXens) * scalefact
                 #obs_sigma = obs_sigma /(0.001 * std_Xens * (np.cos(2. * Pvob) + 1.))
@@ -565,10 +583,22 @@ def main():
             print("covlocal_tmp[1]", msx+1, covlocal_tmp[1][msx+1])
             print("vcovlocal_fact",vcovlocal_fact)
             """
+            xens_test=xens.mean(axis=0)
             xens = enkf_update(xens, hxens, pvob, oberrvar, covlocal_tmp, vcovlocal_fact, obcovlocal=obcovlocal)
             ## xens.shape=(20, 2, 4096), hxens.shape=(20, 2, nobs), pvob.shape=(2, nobs), oberrvar.shape=(nobs,),
             ## covlocal_tmp.shape=(nobs,4096)
             ## vcovlocal_fact = 0.0034636488, obcovlocal = None
+            xens_test2 = xens.mean(axis=0)
+            pv_test = pv_truth[ntime].reshape(2,ny*nx)
+            print("xens_test[3159]", xens_test[0][3159])
+            print("xens_test2", xens_test2[0][3159])
+            print("truth", pv_test[0][3159])
+            print("xens_test[2041]", xens_test[0][2041])
+            print("xens_test2", xens_test2[0][2041])
+            print("truth", pv_test[0][2041])
+            print("xens_test[2097]", xens_test[0][2097])
+            print("xens_test2", xens_test2[0][2097])
+            print("truth", pv_test[0][2097])
 
 
         ## Back to 3D state vector
@@ -634,6 +664,7 @@ def main():
         # More analysis diagnostics in model space #
         ############################################
         print("     More analysis diagnostics in model space")
+        ## pvensmean_a.shape = pv_truth[ntime].shape = (2,64,64)
         pverr_a = (scalefact * (pvensmean_a - pv_truth[ntime])) ** 2                                            ##1234567890
         print("use_letkf: %s, use_ensf: %s" % (use_letkf, use_ensf))                                            ##1234567890
         print("obervation_network_tpye: %s" % obs_network_type)                                                 ##1234567890
@@ -711,8 +742,10 @@ def main():
         ##########################
         print("     *** Ensemble forecasts ***")
         t1 = time.time()
+        print("tttt")
         for nanal in range(nanals):
             pvens[nanal] = models[nanal].advance(pvens[nanal])
+        print("tttt222")
         t2 = time.time()
         if profile_cpu: print('         CPU time for ensemble forecasts: {:.1f}s'.format(t2 - t1))
 
@@ -782,8 +815,8 @@ def main():
         ktotmax = int((N / 2) + 1) # maximum wavenumber
 
         # Initialize KE spectra error and spread arrays
-        kespec_err = np.zeros(ktotmax, np.float32)
-        kespec_sprd = np.zeros(ktotmax, np.float32)
+        kespec_err = np.zeros(ktotmax, np.float64)
+        kespec_sprd = np.zeros(ktotmax, np.float64)
 
         # Fill in those arrays
         for i in range(kespec_errmean.shape[2]):
@@ -798,8 +831,8 @@ def main():
         #                format(kespec_errmean.sum(),kespec_sprdmean.sum()))
 
         # Write data of KE_spectra into files
-        KEspectra_file = np.zeros((ktotmax, 2), np.float32)
-        wavenums = np.arange(ktotmax, dtype=np.float32)
+        KEspectra_file = np.zeros((ktotmax, 2), np.float64)
+        wavenums = np.arange(ktotmax, dtype=np.float64)
         KEspectra_file[:, 0] = wavenums
         KEspectra_file[:, 1] = kespec_err                                                                     ##1234567890
         """
