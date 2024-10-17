@@ -59,9 +59,15 @@ def main():
     #    if nobs = -p: fixed network - observations placed every "p" grid points (FIXED_EVEN)
     #   if nobs = -1: fixed network - observations at all grid points
     hybrid_network = 1  # if 1, network is randomly generated but remains the same at all cycles (FIXED)
-    percentage_arctan = 0.2   # if >0, it means the observation is mixed with linear and nonlinear.
+    percentage_arctan = 0.   # if >0, it means the observation is mixed with linear and nonlinear.
     oberrstdev = 1.0  # observation error standard deviation in K (orig=1)
-    oberrstdev_nl = 0.03
+    oberrstdev_nl = 0.01
+    ## Input arguments
+    # hcovlocal_scale = 1200.0 * 1000.0  #  [m]
+    hcovlocal_scale = 1200.0 * 1000.0  #  [m]
+    # covinflate1 = 0.5
+    covinflate1 = 0.9
+    covinflate2 = -1.0
     # if levob=0, sfc temp obs used.  if 1, lid temp obs used. If [0,1] obs at both
     # boundaries.
     levob = [0, 1];
@@ -96,10 +102,6 @@ def main():
     ## Misc
     profile_cpu = True  # CPU profiling for analysis and forecast steps
 
-    ## Input arguments
-    hcovlocal_scale = 1200.0 * 1000.0  #  [m]
-    covinflate1 = 0.8
-    covinflate2 = -1.0
 
     ## Print info
     print("                                         *** STARTING SQG CYCLING ***")
@@ -336,14 +338,8 @@ def main():
             indx_indxob_nl = np.setdiff1d(np.arange(nobs),indx_indxob_l)
             indxob_nl = indxob[indx_indxob_nl]
             oberrvar[[indx_indxob_nl]] = oberrstdev_nl ** 2
-            print("indxob[0:20]", indxob[0:20], indxob.shape)
-            print("indx_indxob_l[0:20]", indx_indxob_l[0:20], indx_indxob_l.shape)
-            print("indxob_l[0:20]", indxob_l[0:20], indxob_l.shape)
-            print(indxob[indx_indxob_l[0:20]])
-            print("indx_indxob_nl[0:20]", indx_indxob_nl[0:20], indx_indxob_nl.shape)
-            print("indxob_nl[0:20]", indxob_nl[0:20], indxob_nl.shape)
-            print(oberrvar[0],oberrvar[4],oberrvar[13],oberrvar[17],oberrvar[26])
-            print(oberrvar[1],oberrvar[2],oberrvar[3],oberrvar[5])
+            print("indx_indxob_l[0:20]", indxob_l[0:20], indxob_l.shape)
+            print("indx_indxob_nl[0:20]", indxob_nl[0:20], indxob_nl.shape)
         print("indxob", indxob, indxob.shape)
         #print(oberrvar)
 
@@ -568,37 +564,10 @@ def main():
             xens = Xens.reshape(nanals, 2, nx * ny)
             print("xens.shape", xens.shape)
         elif use_letkf:
-            """
-            print("covlocal_tmp",covlocal_tmp,covlocal_tmp.shape)
-            print(covlocal_tmp[0],covlocal_tmp[1])
-            
-            for i in range(covlocal_tmp[0].shape[0]):
-                print("covlocal_tmp[0]",i,covlocal_tmp[0][i])
-                print("covlocal_tmp[1]", i, covlocal_tmp[1][i])
-            
-            msx=2557
-            print("covlocal_tmp[0]",msx,covlocal_tmp[0][msx])
-            print("covlocal_tmp[1]", msx, covlocal_tmp[1][msx])
-            print("covlocal_tmp[0]",msx+1,covlocal_tmp[0][msx+1])
-            print("covlocal_tmp[1]", msx+1, covlocal_tmp[1][msx+1])
-            print("vcovlocal_fact",vcovlocal_fact)
-            """
-            xens_test=xens.mean(axis=0)
             xens = enkf_update(xens, hxens, pvob, oberrvar, covlocal_tmp, vcovlocal_fact, obcovlocal=obcovlocal)
             ## xens.shape=(20, 2, 4096), hxens.shape=(20, 2, nobs), pvob.shape=(2, nobs), oberrvar.shape=(nobs,),
             ## covlocal_tmp.shape=(nobs,4096)
             ## vcovlocal_fact = 0.0034636488, obcovlocal = None
-            xens_test2 = xens.mean(axis=0)
-            pv_test = pv_truth[ntime].reshape(2,ny*nx)
-            print("xens_test[3159]", xens_test[0][3159])
-            print("xens_test2", xens_test2[0][3159])
-            print("truth", pv_test[0][3159])
-            print("xens_test[2041]", xens_test[0][2041])
-            print("xens_test2", xens_test2[0][2041])
-            print("truth", pv_test[0][2041])
-            print("xens_test[2097]", xens_test[0][2097])
-            print("xens_test2", xens_test2[0][2097])
-            print("truth", pv_test[0][2097])
 
 
         ## Back to 3D state vector
@@ -713,10 +682,9 @@ def main():
                 #df.to_csv("RMSE_letkf_fixed_even_R1_1024_linear.csv", index=False)  ##1234567890
                 #df.to_csv("RMSE_letkf_fixed_R1_1024_linear.csv", index=False)  ##1234567890
                 #df.to_csv("RMSE_letkf_random_R1_1024_linear.csv", index=False)  ##1234567890
-                df.to_csv("RMSE_letkf_fixed_1024_80linear_20arctan.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_letkf_fixed_1024_60linear_40arctan.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_letkf_fixed_1024_40linear_60arctan.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_letkf_fixed_1024_20linear_80arctan.csv", index=False)  ##1234567890
+                df.to_csv("RMSE_letkf_{}_{}_{}linear_{}arctan_{}_{}.csv".format(obs_network_type, nobs,
+                            int((1-percentage_arctan)*100), int(percentage_arctan*100), int(hcovlocal_scale / 1000.),
+                            int(covinflate1*1000)), index=False)  ##1234567890
 
 
         pvsprd_a = ((scalefact * (pvensmean_a - pvens)) ** 2).sum(axis=0) / (nanals - 1)
@@ -742,10 +710,8 @@ def main():
         ##########################
         print("     *** Ensemble forecasts ***")
         t1 = time.time()
-        print("tttt")
         for nanal in range(nanals):
             pvens[nanal] = models[nanal].advance(pvens[nanal])
-        print("tttt222")
         t2 = time.time()
         if profile_cpu: print('         CPU time for ensemble forecasts: {:.1f}s'.format(t2 - t1))
 
