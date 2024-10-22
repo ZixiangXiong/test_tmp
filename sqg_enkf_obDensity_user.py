@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from Rev_SDE import REVERSE_SDE
 import pandas as pd
+import math
 
 matplotlib.rcParams.update({'font.size': 16.0})
 
@@ -44,8 +45,8 @@ def main():
     ## Observations
     # number of obs to assimilate (orig=1024)                                                   ##1234567890
     #nobs = -2   ## the actual obs-number is (64/2)**2=1024                                      ##1234567890
-    nobs = 1024                                                                                  ##1234567890
-    #nobs = 4096
+    #nobs = 1024                                                                                  ##1234567890
+    nobs = 4096
     #nobs = 32
     #nobs = 128
     #nobs = 64
@@ -59,12 +60,12 @@ def main():
     #    if nobs = -p: fixed network - observations placed every "p" grid points (FIXED_EVEN)
     #   if nobs = -1: fixed network - observations at all grid points
     hybrid_network = 1  # if 1, network is randomly generated but remains the same at all cycles (FIXED)
-    percentage_arctan = 0.   # if >0, it means the observation is mixed with linear and nonlinear.
+    percentage_arctan = 1.   # if >0, it means the observation is mixed with linear and nonlinear.
     oberrstdev = 1.0  # observation error standard deviation in K (orig=1)
     oberrstdev_nl = 0.01
     ## Input arguments
     # hcovlocal_scale = 1200.0 * 1000.0  #  [m]
-    hcovlocal_scale = 1200.0 * 1000.0  #  [m]
+    hcovlocal_scale = 2000.0 * 1000.0  #  [m]
     # covinflate1 = 0.5
     covinflate1 = 0.9
     covinflate2 = -1.0
@@ -643,7 +644,9 @@ def main():
             print("%s %s %g" % (ntime, "RMSE_Ensf=", np.sqrt(pverr_a.mean())))                                  ##1234567890
         if use_letkf is True and use_ensf is False:                                                             ##1234567890
             print("%s %s %g" % (ntime, "RMSE_letkf=", np.sqrt(pverr_a.mean())))                                 ##1234567890
-
+        if math.isnan(np.sqrt(pverr_a.mean())):
+            print("RMSE=Nan")
+            break
 
         # Write data of RMSE into files                                                                         ##1234567890
         if use_letkf is False and use_ensf is False:                                                            ##1234567890  ##natural run
