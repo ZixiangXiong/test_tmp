@@ -60,14 +60,14 @@ def main():
     #    if nobs = -p: fixed network - observations placed every "p" grid points (FIXED_EVEN)
     #   if nobs = -1: fixed network - observations at all grid points
     hybrid_network = 1  # if 1, network is randomly generated but remains the same at all cycles (FIXED)
-    percentage_arctan = 1.   # if >0, it means the observation is mixed with linear and nonlinear.
+    percentage_arctan = 0.   # if >0, it means the observation is mixed with linear and nonlinear.
     oberrstdev = 1.0  # observation error standard deviation in K (orig=1)
     oberrstdev_nl = 0.01
     ## Input arguments
     # hcovlocal_scale = 1200.0 * 1000.0  #  [m]
-    hcovlocal_scale = 2000.0 * 1000.0  #  [m]
+    hcovlocal_scale = 1500.0 * 1000.0  #  [m]
     # covinflate1 = 0.5
-    covinflate1 = 0.9
+    covinflate1 = 0.7
     covinflate2 = -1.0
     # if levob=0, sfc temp obs used.  if 1, lid temp obs used. If [0,1] obs at both
     # boundaries.
@@ -82,7 +82,7 @@ def main():
     ## I/O paths
     # savedata = True  # save data (orig=False)
     savedata = False  ##1234567890
-    data_dir = r"/Users/xiongzixiang/PycharmProjects/EnSF_banking"
+    data_dir = r"C:\Users\Zixiang\PycharmProjects\Research"
     filename_climo = '{}/sqg_N{}_3hrly.nc'.format(data_dir, N1)  # file name for forecast model climatology
     fname_ncout = r'C:\Users\Zixiang\PycharmProjects\Research\sqg_enkf_p{}_RANDOM.nc'.format(nobs)
     if nobs < 0:
@@ -339,8 +339,8 @@ def main():
             indx_indxob_nl = np.setdiff1d(np.arange(nobs),indx_indxob_l)
             indxob_nl = indxob[indx_indxob_nl]
             oberrvar[[indx_indxob_nl]] = oberrstdev_nl ** 2
-            print("indx_indxob_l[0:20]", indxob_l[0:20], indxob_l.shape)
-            print("indx_indxob_nl[0:20]", indxob_nl[0:20], indxob_nl.shape)
+            print("indxob_l[0:20]", indxob_l[0:20], indxob_l.shape)
+            print("indxob_nl[0:20]", indxob_nl[0:20], indxob_nl.shape)
         print("indxob", indxob, indxob.shape)
         #print(oberrvar)
 
@@ -355,19 +355,9 @@ def main():
         elif percentage_arctan > 0:         ## observation function is mixed of linear and nonlinear.
             for k in range(len(levob)):
                 pvob[k][[indx_indxob_l]] = scalefact * pv_truth[ntime, k, :, :].ravel()[indxob_l]
-                #print(scalefact * pv_truth[ntime, k, :, :].ravel()[84],pvob[k][1])
-                #print(scalefact * pv_truth[ntime, k, :, :].ravel()[2595], pvob[k][2])
-                #print("pvob[k][[indx_indxob_l]]",pvob[k][1],pvob[k][2],pvob[k][3],pvob[k][5])
                 pvob[k][[indx_indxob_l]] += np.random.normal(loc=0.,scale=oberrstdev, size=indx_indxob_l.shape[0])  # add ob errors
-                #print(pvob[k][1],pvob[k][2])
-                #print("pvob[k][[indx_indxob_l]]", pvob[k][1],pvob[k][2],pvob[k][3],pvob[k][5])
                 pvob[k][[indx_indxob_nl]] = np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[indxob_nl])
-                #print(np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[3159]),pvob[k][0])
-                #print(np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[2041]), pvob[k][4])
-                #print("pvob[k][[indx_indxob_nl]]", pvob[k][0],pvob[k][4],pvob[k][13],pvob[k][17])
                 pvob[k][[indx_indxob_nl]] += np.random.normal(loc=0.,scale=oberrstdev_nl, size=indx_indxob_nl.shape[0])  # add ob errors
-                #print(pvob[k][0],pvob[k][4])
-                #print("pvob[k][[indx_indxob_nl]]", pvob[k][0],pvob[k][4],pvob[k][13],pvob[k][17])
 
         xob = x.ravel()[indxob]
         yob = y.ravel()[indxob]
