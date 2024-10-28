@@ -69,6 +69,9 @@ def main():
     # covinflate1 = 0.5
     covinflate1 = 0.8
     covinflate2 = -1.0
+    ## Fix the random seed
+    rns1 = np.random.RandomState(42)
+    rns2 = np.random.RandomState(42)
     # if levob=0, sfc temp obs used.  if 1, lid temp obs used. If [0,1] obs at both
     # boundaries.
     levob = [0, 1];
@@ -82,7 +85,7 @@ def main():
     ## I/O paths
     # savedata = True  # save data (orig=False)
     savedata = False  ##1234567890
-    data_dir = r"C:\Users\Zixiang\PycharmProjects\Research"
+    data_dir = r"/Users/xiongzixiang/PycharmProjects/EnSF_banking"
     filename_climo = '{}/sqg_N{}_12hrly.nc'.format(data_dir, N1)  # file name for forecast model climatology
     fname_ncout = r'C:\Users\Zixiang\PycharmProjects\Research\sqg_enkf_p{}_RANDOM.nc'.format(nobs)
     if nobs < 0:
@@ -119,8 +122,6 @@ def main():
     ################
     print("\n\n\n=== Set things up before cycling ===\n")
 
-    ## Fix the random seed
-    np.random.seed(42)
 
     ## Assign important model variables
     print("* Assign important model variables")
@@ -142,15 +143,14 @@ def main():
     ## climatology times
     print("* Initialize model ensemble from model climatology")
     pvens = np.empty((nanals, 2, ny, nx), np.float32)
-    indxran = np.random.choice(pv_climo.shape[0], size=nanals, \
+    indxran = rns2.choice(pv_climo.shape[0], size=nanals, \
                                replace=False)  # set of randomly selected time indices
-    print("indxran", indxran)
     threads = int(os.getenv('OMP_NUM_THREADS', '1'))
     models = []  #  list to hold all ensemble member instances
     for nanal in range(nanals):
         pvens[nanal] = pv_climo[indxran[nanal]]
         if use_ensf is True:  ##1234567890
-            pvens[nanal] = pv_climo[0] + np.random.normal(0., 1000., size=(2, ny, nx))  ##1234567890
+            pvens[nanal] = pv_climo[0] + rns1.normal(0., 1000., size=(2, ny, nx))  ##1234567890
         models.append( \
             SQG(pvens[nanal],
                 nsq=nc_climo.nsq, f=nc_climo.f, dt=dt, U=nc_climo.U, H=nc_climo.H, \
@@ -331,11 +331,9 @@ def main():
             tmp = np.arange(0, nx * ny).reshape(ny, nx)
             indxob = np.sort(tmp[mask.nonzero()].ravel())
 
-        np.random.seed(42)
 
         if percentage_arctan > 0:
-            indx_indxob_l = np.sort(
-                np.random.choice(np.arange(nobs), int(nobs * (1 - percentage_arctan)), replace=False), axis=None)
+            indx_indxob_l = np.sort(rns2.choice(np.arange(nobs), int(nobs * (1 - percentage_arctan)), replace=False), axis=None)
             indxob_l = indxob[indx_indxob_l]
             indx_indxob_nl = np.setdiff1d(np.arange(nobs), indx_indxob_l)
             indxob_nl = indxob[indx_indxob_nl]
@@ -351,24 +349,21 @@ def main():
                 # surface temp obs
                 ## pv_truth[ntime, k, :, :].shape=(64,64), pv_truth[ntime, k, :, :].ravel().shape= 4096
                 pvob[k] = scalefact * pv_truth[ntime, k, :, :].ravel()[indxob]
-                pvob[k] += np.random.normal(scale=oberrstdev, size=nobs)  # add ob errors
+                pvob[k] += rns1.normal(scale=oberrstdev, size=nobs)  # add ob errors
         elif percentage_arctan > 0:  ## observation function is mixed of linear and nonlinear.
             for k in range(len(levob)):
                 pvob[k][[indx_indxob_l]] = scalefact * pv_truth[ntime, k, :, :].ravel()[indxob_l]
                 # print(scalefact * pv_truth[ntime, k, :, :].ravel()[84],pvob[k][1])
                 # print(scalefact * pv_truth[ntime, k, :, :].ravel()[2595], pvob[k][2])
                 # print("pvob[k][[indx_indxob_l]]",pvob[k][1],pvob[k][2],pvob[k][3],pvob[k][5])
-                pvob[k][[indx_indxob_l]] += np.random.normal(loc=0., scale=oberrstdev,
-                                                             size=indx_indxob_l.shape[0])  # add ob errors
+                pvob[k][[indx_indxob_l]] += rns2.normal(loc=0., scale=oberrstdev,size=indx_indxob_l.shape[0])  # add ob errors
                 # print(pvob[k][1],pvob[k][2])
                 # print("pvob[k][[indx_indxob_l]]", pvob[k][1],pvob[k][2],pvob[k][3],pvob[k][5])
                 pvob[k][[indx_indxob_nl]] = np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[indxob_nl])
                 # print(np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[3159]),pvob[k][0])
                 # print(np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[2041]), pvob[k][4])
                 # print("pvob[k][[indx_indxob_nl]]", pvob[k][0],pvob[k][4],pvob[k][13],pvob[k][17])
-                pvob[k][[indx_indxob_nl]] += np.random.normal(loc=0., scale=oberrstdev_nl,
-                                                              size=indx_indxob_nl.shape[0])  # add ob errors
-
+                pvob[k][[indx_indxob_nl]] += rns1.normal(loc=0., scale=oberrstdev_nl,size=indx_indxob_nl.shape[0])  # add ob errors
         xob = x.ravel()[indxob]
         yob = y.ravel()[indxob]
         pvens_copy = pvens.copy()                                                   ##1234567890
@@ -456,7 +451,7 @@ def main():
         print("     Innovation statistics: background")
 
         ## Background ensemble in observation space
-        hxens = np.empty((nanals, len(levob), nobs), float)
+        hxens = np.empty((nanals, len(levob), nobs), np.float32)
         for nanal in range(nanals):
             for k in range(len(levob)):  #  2 levels
                 if percentage_arctan <= 0:
@@ -569,14 +564,7 @@ def main():
             xens = Xens.reshape(nanals, 2, nx * ny)
             print("xens.shape", xens.shape)
         elif use_letkf:
-            #print("xens", xens[0][0][0], xens[0][0][1], xens[0][0][2])
-            #print("hens", hxens[0][0][0], hxens[0][0][1], hxens[0][0][2])
-            #print("vcovlocal_fact", vcovlocal_fact)
-            #print("covlocal_tmp[0]",covlocal_tmp[0][0],covlocal_tmp[0][1])
-            #print("covlocal_tmp[1]", covlocal_tmp[1][0], covlocal_tmp[1][1])
-            #print("covlocal_tmp[2]", covlocal_tmp[2][0], covlocal_tmp[2][1])
             xens = enkf_update(xens, hxens, pvob, oberrvar, covlocal_tmp, vcovlocal_fact, obcovlocal=obcovlocal)
-            #print("xens", xens[0][0][0:10])
             ## xens.shape=(20, 2, 4096), hxens.shape=(20, 2, nobs), pvob.shape=(2, nobs), oberrvar.shape=(nobs,),
             ## covlocal_tmp.shape=(nobs,4096)
             ## vcovlocal_fact = 0.0034636488, obcovlocal = None
