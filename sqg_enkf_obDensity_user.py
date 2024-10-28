@@ -39,35 +39,35 @@ def main():
     nassim_spinup = 200  # diagnostics will be done after the (nassim_spinup+1)th cycle (orig=800)
     nassim_write = 0  #  data will be written out only after the (numassim_write+1)th cycle
     (use_ensf, use_letkf) = (False, True)  # if False, use serial EnSRF filter (orig=False)     ##1234567890
-    rmse_file = np.zeros((nassim, 2))                                                           ##1234567890
-    rmse_file[:, 0] = np.arange(nassim, dtype=int)                                              ##1234567890
+    rmse_file = np.zeros((nassim, 2))  ##1234567890
+    rmse_file[:, 0] = np.arange(nassim, dtype=int)  ##1234567890
 
     ## Observations
     # number of obs to assimilate (orig=1024)                                                   ##1234567890
-    #nobs = -2   ## the actual obs-number is (64/2)**2=1024                                      ##1234567890
-    #nobs = 1024                                                                                  ##1234567890
+    # nobs = -2   ## the actual obs-number is (64/2)**2=1024                                      ##1234567890
+    # nobs = 1024                                                                                  ##1234567890
     nobs = 4096
-    #nobs = 32
-    #nobs = 128
-    #nobs = 64
-    #nobs = 16
-    #nobs = 512
-    #nobs = 2048
+    # nobs = 32
+    # nobs = 128
+    # nobs = 64
+    # nobs = 16
+    # nobs = 512
+    # nobs = 2048
     # nobs = -4   ## the actual obs-number is (64/4)**2=256                                          ##1234567890
-    #nobs = -4                                                                                       ##1234567890
-    #nobs = 256                                                                                      ##1234567890
+    # nobs = -4                                                                                       ##1234567890
+    # nobs = 256                                                                                      ##1234567890
     #   if nobs > 0: observations randomly sampled (without replacement) during each cycle (RANDOM)
     #    if nobs = -p: fixed network - observations placed every "p" grid points (FIXED_EVEN)
     #   if nobs = -1: fixed network - observations at all grid points
     hybrid_network = 1  # if 1, network is randomly generated but remains the same at all cycles (FIXED)
-    percentage_arctan = 0.   # if >0, it means the observation is mixed with linear and nonlinear.
+    percentage_arctan = 1.  # if >0, it means the observation is mixed with linear and nonlinear.
     oberrstdev = 1.0  # observation error standard deviation in K (orig=1)
     oberrstdev_nl = 0.01
     ## Input arguments
-    # hcovlocal_scale = 1200.0 * 1000.0  #  [m]
-    hcovlocal_scale = 1500.0 * 1000.0  #  [m]
+    #hcovlocal_scale = 1200.0 * 1000.0  #  [m]
+    hcovlocal_scale = 2800.0 * 1000.0  #  [m]
     # covinflate1 = 0.5
-    covinflate1 = 0.7
+    covinflate1 = 0.8
     covinflate2 = -1.0
     # if levob=0, sfc temp obs used.  if 1, lid temp obs used. If [0,1] obs at both
     # boundaries.
@@ -83,7 +83,7 @@ def main():
     # savedata = True  # save data (orig=False)
     savedata = False  ##1234567890
     data_dir = r"C:\Users\Zixiang\PycharmProjects\Research"
-    filename_climo = '{}/sqg_N{}_3hrly.nc'.format(data_dir, N1)  # file name for forecast model climatology
+    filename_climo = '{}/sqg_N{}_12hrly.nc'.format(data_dir, N1)  # file name for forecast model climatology
     fname_ncout = r'C:\Users\Zixiang\PycharmProjects\Research\sqg_enkf_p{}_RANDOM.nc'.format(nobs)
     if nobs < 0:
         nobs_fixed = int((-N1 / nobs) ** 2)
@@ -92,9 +92,9 @@ def main():
     if hybrid_network == 1:
         fname_ncout = r'C:\Users\Zixiang\PycharmProjects\Research\sqg_enkf_p{}_FIXED_EVEN.nc'.format(
             nobs)
-    filename_truth = '{}/sqg_N{}_3hrly.nc'.format(data_dir, N1)  # file name for nature run to draw observations
+    filename_truth = '{}/sqg_N{}_12hrly.nc'.format(data_dir, N1)  # file name for nature run to draw observations
     outdir_figs = r'C:\Users\Zixiang\PycharmProjects\Research\observation_density_tunedParms'
-    
+
     ## Plotting
     plot_KE_spectra_error_spread = True
     plot_ob_network = False
@@ -102,7 +102,6 @@ def main():
 
     ## Misc
     profile_cpu = True  # CPU profiling for analysis and forecast steps
-
 
     ## Print info
     print("                                         *** STARTING SQG CYCLING ***")
@@ -142,15 +141,16 @@ def main():
     ## Initialize background ensemble by picking PV fields from randomly selected
     ## climatology times
     print("* Initialize model ensemble from model climatology")
-    pvens = np.empty((nanals, 2, ny, nx), np.float64)
+    pvens = np.empty((nanals, 2, ny, nx), np.float32)
     indxran = np.random.choice(pv_climo.shape[0], size=nanals, \
                                replace=False)  # set of randomly selected time indices
+    print("indxran", indxran)
     threads = int(os.getenv('OMP_NUM_THREADS', '1'))
     models = []  #  list to hold all ensemble member instances
     for nanal in range(nanals):
         pvens[nanal] = pv_climo[indxran[nanal]]
-        if use_ensf is True:                                                                                     ##1234567890
-            pvens[nanal] = pv_climo[0] + np.random.normal(0., 1000., size=(2, ny, nx))                    ##1234567890
+        if use_ensf is True:  ##1234567890
+            pvens[nanal] = pv_climo[0] + np.random.normal(0., 1000., size=(2, ny, nx))  ##1234567890
         models.append( \
             SQG(pvens[nanal],
                 nsq=nc_climo.nsq, f=nc_climo.f, dt=dt, U=nc_climo.U, H=nc_climo.H, \
@@ -184,14 +184,14 @@ def main():
             obs_network_type = "Fixed"
         else:
             obs_network_type = "Random"
-    oberrvar = oberrstdev ** 2 * np.ones(nobs, np.float64)  # 1D array of ob variances [p].
+    oberrvar = oberrstdev ** 2 * np.ones(nobs, np.float32)  # 1D array of ob variances [p].
     oberrvar_mean = oberrvar.mean()  # mean observation error variance
-    pvob = np.empty((len(levob), nobs), np.float64)  #  2D array of observations [lev,p]
-    covlocal = np.empty((ny, nx), np.float64)  # 2D array of covariance functions [Nx,Ny]
-    covlocal_tmp = np.empty((nobs, nx * ny), np.float64)  # 2D array of covariance functions [p,Nx*Ny]
-    xens = np.empty((nanals, 2, nx * ny), np.float64)  # state vector [K,levs,Nx*Ny]
+    pvob = np.empty((len(levob), nobs), np.float32)  #  2D array of observations [lev,p]
+    covlocal = np.empty((ny, nx), np.float32)  # 2D array of covariance functions [Nx,Ny]
+    covlocal_tmp = np.empty((nobs, nx * ny), np.float32)  # 2D array of covariance functions [p,Nx*Ny]
+    xens = np.empty((nanals, 2, nx * ny), np.float32)  # state vector [K,levs,Nx*Ny]
     if not use_letkf:  # if we use EnSRF, will use an observation localization function
-        obcovlocal = np.empty((nobs, nobs), np.float64)  #  2D array of size [p,p]
+        obcovlocal = np.empty((nobs, nobs), np.float32)  #  2D array of size [p,p]
     else:
         obcovlocal = None
     obtimes = nc_truth.variables['t'][:]
@@ -212,20 +212,19 @@ def main():
     ncount_spinup = 0  #  number of DA cycles over which KE spectra statistics will be computed
     nanals2 = 4  # ensemble members used for KE spectra spread calculation
 
-
     ###########
     # Cycling #
     ###########
     print("\n\n=== Cycling ===")
     for ntime in range(nassim):
-    #for ntime in range(1):
+        # for ntime in range(1):
         tcycle_1 = time.time()
         cycle_num = ntime + 1
         print("\nWorking on cycle {}/{}".format(cycle_num, nassim))
 
         ## Initializing netCDF output file
         if savedata and (ntime == nassim_write):
-            #print("     Initializing netCDF output file")
+            # print("     Initializing netCDF output file")
             #  open netCDF file
             nc = Dataset(fname_ncout, mode='w', format='NETCDF4')
             # specify object attributes
@@ -299,7 +298,7 @@ def main():
         ################
         # Observations #
         ################
-        #print("     Assigning observations for this cycle")
+        # print("     Assigning observations for this cycle")
 
         ## Check for consistency between model and observation times
         if models[0].t != obtimes[ntime]:
@@ -309,11 +308,11 @@ def main():
         ## Determine PV obs and their {x,y} coordinates
         ## Note {x,y} coordinates refer to both levels
         if not fixed:
-            if hybrid_network == 1:                                             ## Fixed
+            if hybrid_network == 1:  ## Fixed
                 np.random.seed(10)  # fix random seed so that you get the same network every time
-            p = np.ones((ny, nx), np.float64) / (nx * ny)                ## Random
-            indxob = np.random.choice(nx * ny, nobs, replace=False, p=p.ravel())
-        else:                                                                   ## Fixed_even
+            p = np.ones((ny, nx), np.float64) / (nx * ny)  ## Random
+            indxob = np.sort(np.random.choice(nx * ny, nobs, replace=False, p=p.ravel()))
+        else:  ## Fixed_even
             mask = np.zeros((ny, nx), bool)
             # if every other grid point observed, shift every other time step
             # so every grid point is observed in 2 cycle.
@@ -328,48 +327,56 @@ def main():
                 mask[0:ny:nskip, 0:nx:nskip] = True
             else:
                 nskip = int(nx / np.sqrt(nobs * 2.))
-                mask[0:ny:nskip, 0:nx:(2*nskip)] = True
+                mask[0:ny:nskip, 0:nx:(2 * nskip)] = True
             tmp = np.arange(0, nx * ny).reshape(ny, nx)
-            indxob = tmp[mask.nonzero()].ravel()
+            indxob = np.sort(tmp[mask.nonzero()].ravel())
+
+        np.random.seed(42)
 
         if percentage_arctan > 0:
-            np.random.seed(50)
-            indx_indxob_l = np.sort(np.random.choice(np.arange(nobs), int(nobs * (1-percentage_arctan)), replace=False),axis=None)
+            indx_indxob_l = np.sort(
+                np.random.choice(np.arange(nobs), int(nobs * (1 - percentage_arctan)), replace=False), axis=None)
             indxob_l = indxob[indx_indxob_l]
-            indx_indxob_nl = np.setdiff1d(np.arange(nobs),indx_indxob_l)
+            indx_indxob_nl = np.setdiff1d(np.arange(nobs), indx_indxob_l)
             indxob_nl = indxob[indx_indxob_nl]
             oberrvar[[indx_indxob_nl]] = oberrstdev_nl ** 2
-            print("indxob_l[0:20]", indxob_l[0:20], indxob_l.shape)
-            print("indxob_nl[0:20]", indxob_nl[0:20], indxob_nl.shape)
+            print("indxob_l[0:10]", indxob_l[0:10], indxob_l.shape)
+            print("indx_indxob_l[0:10]", indx_indxob_l[0:10], indx_indxob_l.shape)
+            print("indxob_nl[0:10]", indxob_nl[0:10], indxob_nl.shape)
+            print("indx_indxob_nl[0:10]", indx_indxob_nl[0:10], indx_indxob_nl.shape)
         print("indxob", indxob, indxob.shape)
-        #print(oberrvar)
 
-
-
-        if percentage_arctan <= 0:          ## observation function is only linear.
+        if percentage_arctan <= 0:  ## observation function is only linear.
             for k in range(len(levob)):
                 # surface temp obs
                 ## pv_truth[ntime, k, :, :].shape=(64,64), pv_truth[ntime, k, :, :].ravel().shape= 4096
                 pvob[k] = scalefact * pv_truth[ntime, k, :, :].ravel()[indxob]
                 pvob[k] += np.random.normal(scale=oberrstdev, size=nobs)  # add ob errors
-        elif percentage_arctan > 0:         ## observation function is mixed of linear and nonlinear.
+        elif percentage_arctan > 0:  ## observation function is mixed of linear and nonlinear.
             for k in range(len(levob)):
                 pvob[k][[indx_indxob_l]] = scalefact * pv_truth[ntime, k, :, :].ravel()[indxob_l]
-                pvob[k][[indx_indxob_l]] += np.random.normal(loc=0.,scale=oberrstdev, size=indx_indxob_l.shape[0])  # add ob errors
+                # print(scalefact * pv_truth[ntime, k, :, :].ravel()[84],pvob[k][1])
+                # print(scalefact * pv_truth[ntime, k, :, :].ravel()[2595], pvob[k][2])
+                # print("pvob[k][[indx_indxob_l]]",pvob[k][1],pvob[k][2],pvob[k][3],pvob[k][5])
+                pvob[k][[indx_indxob_l]] += np.random.normal(loc=0., scale=oberrstdev,
+                                                             size=indx_indxob_l.shape[0])  # add ob errors
+                # print(pvob[k][1],pvob[k][2])
+                # print("pvob[k][[indx_indxob_l]]", pvob[k][1],pvob[k][2],pvob[k][3],pvob[k][5])
                 pvob[k][[indx_indxob_nl]] = np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[indxob_nl])
-                pvob[k][[indx_indxob_nl]] += np.random.normal(loc=0.,scale=oberrstdev_nl, size=indx_indxob_nl.shape[0])  # add ob errors
+                # print(np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[3159]),pvob[k][0])
+                # print(np.arctan(scalefact * pv_truth[ntime, k, :, :].ravel()[2041]), pvob[k][4])
+                # print("pvob[k][[indx_indxob_nl]]", pvob[k][0],pvob[k][4],pvob[k][13],pvob[k][17])
+                pvob[k][[indx_indxob_nl]] += np.random.normal(loc=0., scale=oberrstdev_nl,
+                                                              size=indx_indxob_nl.shape[0])  # add ob errors
 
         xob = x.ravel()[indxob]
         yob = y.ravel()[indxob]
-        pvens_copy = pvens.copy()                                                                                   ##1234567890
-        indxob2 = np.concatenate((indxob, np.add(indxob, N1 * N1)), axis=0)                                   ##1234567890
-        pvens_copy_obsnet = np.zeros((nanals, 2 * nobs))                                                            ##1234567890
-        for i in range(nanals):                                                                                     ##1234567890
-            pvens_copy_obsnet[i, :] = pvens_copy.reshape(nanals, 2 * nx * ny)[i, [indxob2]]                         ##1234567890
-        std_XXens_step0 = np.std(pvens_copy_obsnet, axis=0)                                                         ##1234567890
-
-
-
+        pvens_copy = pvens.copy()                                                   ##1234567890
+        indxob2 = np.concatenate((indxob, np.add(indxob, N1 * N1)), axis=0)  ##1234567890
+        pvens_copy_obsnet = np.zeros((nanals, 2 * nobs))  ##1234567890
+        for i in range(nanals):  ##1234567890
+            pvens_copy_obsnet[i, :] = pvens_copy.reshape(nanals, 2 * nx * ny)[i, [indxob2]]  ##1234567890
+        std_XXens_step0 = np.std(pvens_copy_obsnet, axis=0)  ##1234567890
 
         ## Optionally plot the observation network at first analysis time
         if (plot_ob_network == True) and (ntime == 0):
@@ -417,12 +424,13 @@ def main():
         ################################################
         # Covariance localization for each observation #
         ################################################
-        #print("     Covariance localization")
+        # print("     Covariance localization")
+        #print("xob", xob[0],xob[1],xob[2])
+        #print("yob", yob[0], yob[1], yob[2])
         if not fixed or ntime == 0:
             for nob in range(nobs):
                 dist = cartdist(xob[nob], yob[nob], x, y, nc_climo.L, nc_climo.L)
-                #covlocal = gaspcohn(dist / hcovlocal_scale)
-                covlocal = gaspcohn(dist / hcovlocal_scale) + np.eye(nx,k=1) + 2. * np.eye(nx,k=-1)                         ##1234567890
+                covlocal = gaspcohn(dist / hcovlocal_scale)
                 covlocal_tmp[nob] = covlocal.ravel()
                 dist = cartdist(xob[nob], yob[nob], xob, yob, nc_climo.L, nc_climo.L)
                 if not use_letkf: obcovlocal[nob] = gaspcohn(dist / hcovlocal_scale)
@@ -454,8 +462,10 @@ def main():
                 if percentage_arctan <= 0:
                     hxens[nanal, k, ...] = scalefact * pvens[nanal, k, ...].ravel()[indxob]  # surface pv obs
                 elif percentage_arctan > 0:
-                    hxens[nanal][k][indx_indxob_l] = scalefact * pvens[nanal, k, ...].ravel()[indxob_l]  # surface pv obs
-                    hxens[nanal][k][indx_indxob_nl] = np.arctan(scalefact * pvens[nanal, k, ...].ravel()[indxob_nl])  # surface pv obs
+                    hxens[nanal][k][indx_indxob_l] = scalefact * pvens[nanal, k, ...].ravel()[
+                        indxob_l]  # surface pv obs
+                    hxens[nanal][k][indx_indxob_nl] = np.arctan(
+                        scalefact * pvens[nanal, k, ...].ravel()[indxob_nl])  # surface pv obs
         hxensmean_b = hxens.mean(axis=0)
 
         ## Obervation space diagnostics
@@ -491,13 +501,13 @@ def main():
         #################
         print("     *** Analysis update ***")
         t1 = time.time()
-        xxens = np.zeros((nanals, 2, nobs))                                                        ##1234567890
+        xxens = np.zeros((nanals, 2, nobs))  ##1234567890
 
         ## Create 1D vector for each member
         for nanal in range(nanals):
             xens[nanal] = pvens[nanal].reshape((2, nx * ny))
-            xxens[nanal, 0] = xens[nanal, 0, [indxob]]                                          ##1234567890
-            xxens[nanal, 1] = xens[nanal, 1, [indxob]]                                          ##1234567890
+            xxens[nanal, 0] = xens[nanal, 0, [indxob]]  ##1234567890
+            xxens[nanal, 1] = xens[nanal, 1, [indxob]]  ##1234567890
 
         ## Update state vector, direct_insertion=False
         if direct_insertion and nobs == nx * ny and levob == [0, 1]:
@@ -518,21 +528,25 @@ def main():
             Pvob = pvob.reshape(2 * nobs)
             ## Normalization for Pvob and obs_sigma
             Pvob_normalization = (Pvob - scalefact * mean_XXens) / std_XXens
-            #Pvob_normalization = np.arctan(((np.tan(Pvob) / scalefact - mean_Xens) / std_Xens) * scalefact)
+            # Pvob_normalization = np.arctan(((np.tan(Pvob) / scalefact - mean_Xens) / std_Xens) * scalefact)
             obs_sigma = oberrstdev * np.ones(2 * nobs, np.float64)
             if percentage_arctan <= 0:
                 obs_sigma = ((obs_sigma / scalefact) / std_XXens) * scalefact
-                #obs_sigma = obs_sigma /(0.001 * std_Xens * (np.cos(2. * Pvob) + 1.))
-                #obs_sigma = np.where(abs(Pvob) < 1.55, obs_sigma, obs_sigma / 0.000001) / (0.01 * std_XXens)
+                # obs_sigma = obs_sigma /(0.001 * std_Xens * (np.cos(2. * Pvob) + 1.))
+                # obs_sigma = np.where(abs(Pvob) < 1.55, obs_sigma, obs_sigma / 0.000001) / (0.01 * std_XXens)
                 ## Run the EnSF filter.
-                user2 = REVERSE_SDE(1000, XXens_normalization, nanals, Pvob_normalization, obs_sigma,XXens_normalization.shape[1],scalefact,indx_indxob_linear=None)
+                user2 = REVERSE_SDE(1000, XXens_normalization, nanals, Pvob_normalization, obs_sigma,
+                                    XXens_normalization.shape[1], scalefact, indx_indxob_linear=None)
             else:
                 indx_indxob_l_ensf = np.concatenate((indx_indxob_l, np.add(indx_indxob_l, nobs)), axis=0)
                 indx_indxob_nl_ensf = np.setdiff1d(np.arange(2 * nobs), indx_indxob_l_ensf)
                 obs_sigma[[indx_indxob_nl_ensf]] = oberrstdev_nl
-                obs_sigma[[indx_indxob_l_ensf]] = ((obs_sigma[[indx_indxob_l_ensf]] / scalefact) / std_XXens[[indx_indxob_l_ensf]]) * scalefact
-                obs_sigma[[indx_indxob_nl_ensf]] = np.where(abs(Pvob[[indx_indxob_nl_ensf]]) < 1.55, obs_sigma[[indx_indxob_nl_ensf]],
-                                                            obs_sigma[[indx_indxob_nl_ensf]] / 0.000001) / (0.01 * std_XXens[[indx_indxob_nl_ensf]])
+                obs_sigma[[indx_indxob_l_ensf]] = ((obs_sigma[[indx_indxob_l_ensf]] / scalefact) / std_XXens[
+                    [indx_indxob_l_ensf]]) * scalefact
+                obs_sigma[[indx_indxob_nl_ensf]] = np.where(abs(Pvob[[indx_indxob_nl_ensf]]) < 1.55,
+                                                            obs_sigma[[indx_indxob_nl_ensf]],
+                                                            obs_sigma[[indx_indxob_nl_ensf]] / 0.000001) / (
+                                                               0.01 * std_XXens[[indx_indxob_nl_ensf]])
                 ## Run the EnSF filter.
                 user2 = REVERSE_SDE(1000, XXens_normalization, nanals, Pvob_normalization, obs_sigma,
                                     XXens_normalization.shape[1], scalefact, indx_indxob_linear=indx_indxob_l_ensf)
@@ -548,18 +562,24 @@ def main():
             xxens = XXens_infla * dynamic_inflation + mean_infla
             print("xxens.shape", xxens.shape)
             Xens = xens.reshape(nanals, 2 * nx * ny)
-            print("nobs",nobs)
+            print("nobs", nobs)
             for i in range(nobs):
                 Xens[:, indxob[i]] = xxens[:, i]
-                Xens[:, indxob[i] + N1*N1] = xxens[:, i + nobs]
+                Xens[:, indxob[i] + N1 * N1] = xxens[:, i + nobs]
             xens = Xens.reshape(nanals, 2, nx * ny)
             print("xens.shape", xens.shape)
         elif use_letkf:
+            #print("xens", xens[0][0][0], xens[0][0][1], xens[0][0][2])
+            #print("hens", hxens[0][0][0], hxens[0][0][1], hxens[0][0][2])
+            #print("vcovlocal_fact", vcovlocal_fact)
+            #print("covlocal_tmp[0]",covlocal_tmp[0][0],covlocal_tmp[0][1])
+            #print("covlocal_tmp[1]", covlocal_tmp[1][0], covlocal_tmp[1][1])
+            #print("covlocal_tmp[2]", covlocal_tmp[2][0], covlocal_tmp[2][1])
             xens = enkf_update(xens, hxens, pvob, oberrvar, covlocal_tmp, vcovlocal_fact, obcovlocal=obcovlocal)
+            #print("xens", xens[0][0][0:10])
             ## xens.shape=(20, 2, 4096), hxens.shape=(20, 2, nobs), pvob.shape=(2, nobs), oberrvar.shape=(nobs,),
             ## covlocal_tmp.shape=(nobs,4096)
             ## vcovlocal_fact = 0.0034636488, obcovlocal = None
-
 
         ## Back to 3D state vector
         for nanal in range(nanals):
@@ -614,10 +634,10 @@ def main():
             inflation_factor = covinflate1 * asprd + \
                                (asprd / fsprd) ** 2 * ((fsprd / nanals) + covinflate2 * (2. * inc ** 2 / (nanals - 1)))
             inflation_factor = np.sqrt(inflation_factor / asprd)
-        #print("inflation_factor",inflation_factor)
+        # print("inflation_factor",inflation_factor)
         ## Apply inflation and reform analysis ensemble
         pvprime = pvprime * inflation_factor
-        if use_letkf is True:                                                                                   ##1234567890
+        if use_letkf is True:  ##1234567890
             pvens = pvprime + pvensmean_a
 
         ############################################
@@ -625,60 +645,63 @@ def main():
         ############################################
         print("     More analysis diagnostics in model space")
         ## pvensmean_a.shape = pv_truth[ntime].shape = (2,64,64)
-        pverr_a = (scalefact * (pvensmean_a - pv_truth[ntime])) ** 2                                            ##1234567890
-        print("use_letkf: %s, use_ensf: %s" % (use_letkf, use_ensf))                                            ##1234567890
-        print("obervation_network_tpye: %s" % obs_network_type)                                                 ##1234567890
-        if use_letkf is False and use_ensf is False:                                                            ##1234567890
-            print("%s %s %g" % (ntime, "RMSE_natural_run=", np.sqrt(pverr_b.mean())))                           ##1234567890
-        if use_letkf is False and use_ensf is True:                                                             ##1234567890
-            print("%s %s %g" % (ntime, "RMSE_Ensf=", np.sqrt(pverr_a.mean())))                                  ##1234567890
-        if use_letkf is True and use_ensf is False:                                                             ##1234567890
-            print("%s %s %g" % (ntime, "RMSE_letkf=", np.sqrt(pverr_a.mean())))                                 ##1234567890
+        pverr_a = (scalefact * (pvensmean_a - pv_truth[ntime])) ** 2  ##1234567890
+        print("use_letkf: %s, use_ensf: %s" % (use_letkf, use_ensf))  ##1234567890
+        print("obervation_network_tpye: %s" % obs_network_type)  ##1234567890
+        if use_letkf is False and use_ensf is False:  ##1234567890
+            print("%s %s %g" % (ntime, "RMSE_natural_run=", np.sqrt(pverr_b.mean())))  ##1234567890
+        if use_letkf is False and use_ensf is True:  ##1234567890
+            print("%s %s %g" % (ntime, "RMSE_Ensf=", np.sqrt(pverr_a.mean())))  ##1234567890
+        if use_letkf is True and use_ensf is False:  ##1234567890
+            print("%s %s %g" % (ntime, "RMSE_letkf=", np.sqrt(pverr_a.mean())))  ##1234567890
         if math.isnan(np.sqrt(pverr_a.mean())):
             print("RMSE=Nan")
             break
 
         # Write data of RMSE into files                                                                         ##1234567890
-        if use_letkf is False and use_ensf is False:                                                            ##1234567890  ##natural run
-            rmse_file[ntime, 1] = np.sqrt(pverr_b.mean())                                                       ##1234567890
+        if use_letkf is False and use_ensf is False:  ##1234567890  ##natural run
+            rmse_file[ntime, 1] = np.sqrt(pverr_b.mean())  ##1234567890
             if ntime == nassim - 1:
-                df = pd.DataFrame(rmse_file, columns=["Filtering_time_step", "RMSE_natural_run"])               ##1234567890
-                #df.to_csv("RMSE_natural_run_fixed_even_1024_linear.csv", index=False)                 ##1234567890
-                #df.to_csv("RMSE_natural_run_fixed_1024_linear.csv", index=False)                      ##1234567890
-                #df.to_csv("RMSE_natural_run_random_1024_linear.csv", index=False)                   ##1234567890
-                #df.to_csv("RMSE_natural_run_fixed_even_256_linear.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_natural_run_fixed_256_linear.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_natural_run_random_256_linear.csv", index=False)  ##1234567890
-        if use_letkf is False and use_ensf is True:                                                             ##1234567890  ##EnSF update
-            rmse_file[ntime, 1] = np.sqrt(pverr_a.mean())                                                       ##1234567890
+                df = pd.DataFrame(rmse_file, columns=["Filtering_time_step", "RMSE_natural_run"])  ##1234567890
+                # df.to_csv("RMSE_natural_run_fixed_even_1024_linear.csv", index=False)                 ##1234567890
+                # df.to_csv("RMSE_natural_run_fixed_1024_linear.csv", index=False)                      ##1234567890
+                # df.to_csv("RMSE_natural_run_random_1024_linear.csv", index=False)                   ##1234567890
+                # df.to_csv("RMSE_natural_run_fixed_even_256_linear.csv", index=False)  ##1234567890
+                # df.to_csv("RMSE_natural_run_fixed_256_linear.csv", index=False)  ##1234567890
+                # df.to_csv("RMSE_natural_run_random_256_linear.csv", index=False)  ##1234567890
+        if use_letkf is False and use_ensf is True:  ##1234567890  ##EnSF update
+            rmse_file[ntime, 1] = np.sqrt(pverr_a.mean())  ##1234567890
             if ntime == nassim - 1:
-                df = pd.DataFrame(rmse_file, columns=["Filtering_time_step", "RMSE_ensf"])                      ##1234567890
-                #df.to_csv("RMSE_ensf_fixed_even_1024_linear.csv", index=False)                        ##1234567890
-                #df.to_csv("RMSE_ensf_fixed_1024_linear.csv", index=False)                               ##1234567890
-                #df.to_csv("RMSE_ensf_random_1024_linear.csv", index=False)                          ##1234567890
-                #df.to_csv("RMSE_ensf_fixed_even_256_linear.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_ensf_fixed_256_linear.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_ensf_random_256_linear.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_ensf_fixed_1024_80linear_20arctan.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_ensf_fixed_1024_60linear_40arctan.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_ensf_fixed_1024_40linear_60arctan.csv", index=False)  ##1234567890
-        if use_letkf is True and use_ensf is False:                                                             ##1234567890  ##letkf update
-            rmse_file[ntime, 1] = np.sqrt(pverr_a.mean())                                                       ##1234567890
+                df = pd.DataFrame(rmse_file, columns=["Filtering_time_step", "RMSE_ensf"])  ##1234567890
+                # df.to_csv("RMSE_ensf_fixed_even_1024_linear.csv", index=False)                        ##1234567890
+                # df.to_csv("RMSE_ensf_fixed_1024_linear.csv", index=False)                               ##1234567890
+                # df.to_csv("RMSE_ensf_random_1024_linear.csv", index=False)                          ##1234567890
+                # df.to_csv("RMSE_ensf_fixed_even_256_linear.csv", index=False)  ##1234567890
+                # df.to_csv("RMSE_ensf_fixed_256_linear.csv", index=False)  ##1234567890
+                # df.to_csv("RMSE_ensf_random_256_linear.csv", index=False)  ##1234567890
+                # df.to_csv("RMSE_ensf_fixed_1024_80linear_20arctan.csv", index=False)  ##1234567890
+                # df.to_csv("RMSE_ensf_fixed_1024_60linear_40arctan.csv", index=False)  ##1234567890
+                # df.to_csv("RMSE_ensf_fixed_1024_40linear_60arctan.csv", index=False)  ##1234567890
+        if use_letkf is True and use_ensf is False:  ##1234567890  ##letkf update
+            rmse_file[ntime, 1] = np.sqrt(pverr_a.mean())  ##1234567890
             if ntime == nassim - 1:
-                df = pd.DataFrame(rmse_file, columns=["Filtering_time_step", "RMSE_letkf"])                     ##1234567890
-                #df.to_csv("RMSE_letkf_fixed_even_1024_linear.csv", index=False)                            ##1234567890
-                #df.to_csv("RMSE_letkf_fixed_1024_linear.csv", index=False)                              ##1234567890
-                #df.to_csv("RMSE_letkf_random_1024_linear.csv", index=False)                         ##1234567890
-                #df.to_csv("RMSE_letkf_fixed_even_256_linear.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_letkf_fixed_256_linear.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_letkf_random_256_linear.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_letkf_fixed_even_R1_1024_linear.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_letkf_fixed_R1_1024_linear.csv", index=False)  ##1234567890
-                #df.to_csv("RMSE_letkf_random_R1_1024_linear.csv", index=False)  ##1234567890
-                df.to_csv("RMSE_letkf_{}_{}_{}linear_{}arctan_{}_{}.csv".format(obs_network_type, nobs,
-                            int((1-percentage_arctan)*100), int(percentage_arctan*100), int(hcovlocal_scale / 1000.),
-                            int(covinflate1*1000)), index=False)  ##1234567890
-
+                df = pd.DataFrame(rmse_file, columns=["Filtering_time_step", "RMSE_letkf"])  ##1234567890
+                # df.to_csv("RMSE_letkf_fixed_even_1024_linear.csv", index=False)                            ##1234567890
+                # df.to_csv("RMSE_letkf_fixed_1024_linear.csv", index=False)                              ##1234567890
+                # df.to_csv("RMSE_letkf_random_1024_linear.csv", index=False)                         ##1234567890
+                # df.to_csv("RMSE_letkf_fixed_even_256_linear.csv", index=False)  ##1234567890
+                # df.to_csv("RMSE_letkf_fixed_256_linear.csv", index=False)  ##1234567890
+                # df.to_csv("RMSE_letkf_random_256_linear.csv", index=False)  ##1234567890
+                # df.to_csv("RMSE_letkf_fixed_even_R1_1024_linear.csv", index=False)  ##1234567890
+                # df.to_csv("RMSE_letkf_fixed_R1_1024_linear.csv", index=False)  ##1234567890
+                # df.to_csv("RMSE_letkf_random_R1_1024_linear.csv", index=False)  ##1234567890
+                #df.to_csv("RMSE_letkf_{}_{}_{}linear_{}arctan_{}_{}.csv".format(obs_network_type, nobs, int((1 - percentage_arctan) * 100), int(percentage_arctan * 100),
+                #            int(hcovlocal_scale / 1000.), int(covinflate1 * 1000)), index=False)  ##1234567890
+                df.to_csv("RMSE_letkf_12hr_{}_{}_{}linear_{}arctan_{}_{}.csv".format(obs_network_type, nobs,
+                                                                                int((1 - percentage_arctan) * 100),
+                                                                                int(percentage_arctan * 100),
+                                                                                int(hcovlocal_scale / 1000.),
+                                                                                int(covinflate1 * 1000)),index=False)  ##1234567890
 
         pvsprd_a = ((scalefact * (pvensmean_a - pvens)) ** 2).sum(axis=0) / (nanals - 1)
         # print("         %s %g %g %g %g %g %g %g %g %g %g %g" %\
@@ -713,7 +736,7 @@ def main():
         ################################
         print("     Calculating KE spectra error and spread for this cycle")
         if ntime >= nassim_spinup:
-        #if ntime >= 0:
+            # if ntime >= 0:
             pvfcstmean = pvens.mean(axis=0)  # mean of PV forecast ensemble
             pverrspec = scalefact * rfft2(pvfcstmean - pv_truth[ntime + 1])  # PV error of forecast mean
             # in spectral space
@@ -723,7 +746,7 @@ def main():
             if kespec_errmean is None:
                 kespec_errmean = \
                     (models[0].ksqlsq * (psispec * np.conjugate(psispec))).real
-                print("kespec_errmean",kespec_errmean.shape)
+                print("kespec_errmean", kespec_errmean.shape)
             else:
                 kespec_errmean = kespec_errmean + kespec
                 print("kespec_errmean", kespec_errmean.shape)
@@ -771,7 +794,7 @@ def main():
         l = N * np.fft.fftfreq(N)  # "l" wavenumber array
         k, l = np.meshgrid(k, l)  #  meshgrid of wavenumbers
         ktot = np.sqrt(k ** 2 + l ** 2)  # total wavenumber
-        ktotmax = int((N / 2) + 1) # maximum wavenumber
+        ktotmax = int((N / 2) + 1)  # maximum wavenumber
 
         # Initialize KE spectra error and spread arrays
         kespec_err = np.zeros(ktotmax, np.float64)
@@ -793,7 +816,7 @@ def main():
         KEspectra_file = np.zeros((ktotmax, 2), np.float64)
         wavenums = np.arange(ktotmax, dtype=np.float64)
         KEspectra_file[:, 0] = wavenums
-        KEspectra_file[:, 1] = kespec_err                                                                     ##1234567890
+        KEspectra_file[:, 1] = kespec_err  ##1234567890
         """
         if use_letkf is False and use_ensf is True:  ##1234567890  ##EnSF update
             df = pd.DataFrame(KEspectra_file, columns=["Wavenumber", "KEspectra_ensf"])                     ##1234567890
@@ -848,33 +871,17 @@ def main():
             #df.to_csv("KEspectra_letkf_fixed_4096_linear.csv", index=False)
         """
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         # for n in range(1,ktotmax):
         #    print('# ',wavenums[n],kespec_err[n],kespec_sprd[n])
-        #plt.loglog(wavenums[1:-1], kespec_err[1:-1], color='r')
-        #plt.loglog(wavenums[1:-1], kespec_sprd[1:-1], color='b')
-        #plt.title('error (red) and spread (blue) spectra')
-        #if infl_method == 'rtps':
+        # plt.loglog(wavenums[1:-1], kespec_err[1:-1], color='r')
+        # plt.loglog(wavenums[1:-1], kespec_sprd[1:-1], color='b')
+        # plt.title('error (red) and spread (blue) spectra')
+        # if infl_method == 'rtps':
         #    plt.savefig('{}/errorspread_spectra_p{}.png'.format(outdir_figs, nobs))
-        #elif infl_method == 'hodyss':
+        # elif infl_method == 'hodyss':
         #    plt.savefig('{}/errorspread_spectra_p{}.png'.format(outdir_figs, nobs))
-        #plt.show()
-        #plt.close()
+        # plt.show()
+        # plt.close()
 
 
 ################
